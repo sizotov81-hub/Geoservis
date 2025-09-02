@@ -1,0 +1,127 @@
+goroutine 1591 [running]:
+runtime/pprof.writeGoroutineStacks({0x75eca78fc278, 0xc001192140})
+	/usr/local/go/src/runtime/pprof/pprof.go:761 +0x6a
+runtime/pprof.writeGoroutine({0x75eca78fc278?, 0xc001192140?}, 0xc0011e6540?)
+	/usr/local/go/src/runtime/pprof/pprof.go:750 +0x25
+runtime/pprof.(*Profile).WriteTo(0x1848b70?, {0x75eca78fc278?, 0xc001192140?}, 0xc?)
+	/usr/local/go/src/runtime/pprof/pprof.go:374 +0x14b
+net/http/pprof.handler.ServeHTTP({0xc0018c2018, 0x9}, {0x75eca78f8d38, 0xc001192140}, 0xc0000d0780)
+	/usr/local/go/src/net/http/pprof/pprof.go:272 +0x52f
+gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/pprof.handlePprofRequest({0x75eca78f8d38?, 0xc001192140?}, 0xc0000d0780?)
+	/app/internal/infrastructure/pprof/pprof_handler.go:46 +0x145
+gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/pprof.Handler.func2({0x75eca78f8d38?, 0xc001192140?}, 0xc0001fe0f0?)
+	/app/internal/infrastructure/pprof/pprof_handler.go:22 +0x1d
+net/http.HandlerFunc.ServeHTTP(0xc0000ee1e0?, {0x75eca78f8d38?, 0xc001192140?}, 0xc00167e1b0?)
+	/usr/local/go/src/net/http/server.go:2220 +0x29
+github.com/go-chi/chi/v5.(*Mux).routeHTTP(0xc0000b7620, {0x75eca78f8d38, 0xc001192140}, 0xc0000d0780)
+	/go/pkg/mod/github.com/go-chi/chi/v5@v5.2.1/mux.go:480 +0x2e2
+net/http.HandlerFunc.ServeHTTP(0xc0013e76c0?, {0x75eca78f8d38?, 0xc001192140?}, 0xc0013e76a0?)
+	/usr/local/go/src/net/http/server.go:2220 +0x29
+github.com/go-chi/chi/v5.(*Mux).ServeHTTP(0xc0000b7620, {0x75eca78f8d38, 0xc001192140}, 0xc0000d0780)
+	/go/pkg/mod/github.com/go-chi/chi/v5@v5.2.1/mux.go:73 +0x32f
+github.com/go-chi/chi/v5.(*Mux).Mount.func1({0x75eca78f8d38, 0xc001192140}, 0xc0000d0780)
+	/go/pkg/mod/github.com/go-chi/chi/v5@v5.2.1/mux.go:327 +0x1bb
+net/http.HandlerFunc.ServeHTTP(0xc00007eae0?, {0x75eca78f8d38?, 0xc001192140?}, 0x1?)
+	/usr/local/go/src/net/http/server.go:2220 +0x29
+main.AuthMiddleware.func1({0x75eca78f8d38, 0xc001192140}, 0xc0000d0780)
+	/app/auth.go:90 +0x2e3
+net/http.HandlerFunc.ServeHTTP(0xc0018c2018?, {0x75eca78f8d38?, 0xc001192140?}, 0xc0000342e0?)
+	/usr/local/go/src/net/http/server.go:2220 +0x29
+github.com/go-chi/chi/v5.(*ChainHandler).ServeHTTP(0xc0000ee1e0?, {0x75eca78f8d38?, 0xc001192140?}, 0xc0018c2004?)
+	/go/pkg/mod/github.com/go-chi/chi/v5@v5.2.1/chain.go:31 +0x26
+github.com/go-chi/chi/v5.(*Mux).routeHTTP(0xc0000b6e40, {0x75eca78f8d38, 0xc001192140}, 0xc0000d0780)
+	/go/pkg/mod/github.com/go-chi/chi/v5@v5.2.1/mux.go:480 +0x2e2
+net/http.HandlerFunc.ServeHTTP(0x410ac5?, {0x75eca78f8d38?, 0xc001192140?}, 0x1843d01?)
+	/usr/local/go/src/net/http/server.go:2220 +0x29
+github.com/go-chi/chi/v5/middleware.Recoverer.func1({0x75eca78f8d38?, 0xc001192140?}, 0xc0011e61b0?)
+	/go/pkg/mod/github.com/go-chi/chi/v5@v5.2.1/middleware/recoverer.go:45 +0x6c
+net/http.HandlerFunc.ServeHTTP(0x1846d10?, {0x75eca78f8d38?, 0xc001192140?}, 0x75ecee414778?)
+	/usr/local/go/src/net/http/server.go:2220 +0x29
+github.com/go-chi/chi/v5/middleware.init.0.RequestLogger.func1.1({0xc2b328, 0xc00010c000}, 0xc0000d0640)
+	/go/pkg/mod/github.com/go-chi/chi/v5@v5.2.1/middleware/logger.go:55 +0x154
+net/http.HandlerFunc.ServeHTTP(0xc2ca28?, {0xc2b328?, 0xc00010c000?}, 0x1843d10?)
+	/usr/local/go/src/net/http/server.go:2220 +0x29
+github.com/go-chi/chi/v5.(*Mux).ServeHTTP(0xc0000b6e40, {0xc2b328, 0xc00010c000}, 0xc0000d03c0)
+	/go/pkg/mod/github.com/go-chi/chi/v5@v5.2.1/mux.go:90 +0x2ee
+net/http.serverHandler.ServeHTTP({0xc0011e6030?}, {0xc2b328?, 0xc00010c000?}, 0x6?)
+	/usr/local/go/src/net/http/server.go:3210 +0x8e
+net/http.(*conn).serve(0xc000550510, {0xc2c9f0, 0xc000527950})
+	/usr/local/go/src/net/http/server.go:2092 +0x5d0
+created by net/http.(*Server).Serve in goroutine 8
+	/usr/local/go/src/net/http/server.go:3360 +0x485
+
+goroutine 1 [chan receive, 5 minutes]:
+main.main()
+	/app/main.go:103 +0x4d4
+
+goroutine 4 [select, 5 minutes]:
+database/sql.(*DB).connectionOpener(0xc00015af70, {0xc2ca28, 0xc0001704b0})
+	/usr/local/go/src/database/sql/sql.go:1253 +0x87
+created by database/sql.OpenDB in goroutine 1
+	/usr/local/go/src/database/sql/sql.go:833 +0x130
+
+goroutine 36 [select]:
+database/sql.(*DB).connectionCleaner(0xc00015af70, 0x0?)
+	/usr/local/go/src/database/sql/sql.go:1096 +0x9c
+created by database/sql.(*DB).startCleanerLocked in goroutine 1
+	/usr/local/go/src/database/sql/sql.go:1083 +0x105
+
+goroutine 8 [IO wait]:
+internal/poll.runtime_pollWait(0x75ecee4a56c8, 0x72)
+	/usr/local/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc000128300?, 0x900000036?, 0x0)
+	/usr/local/go/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/usr/local/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xc000128300)
+	/usr/local/go/src/internal/poll/fd_unix.go:620 +0x295
+net.(*netFD).accept(0xc000128300)
+	/usr/local/go/src/net/fd_unix.go:172 +0x29
+net.(*TCPListener).accept(0xc00016f380)
+	/usr/local/go/src/net/tcpsock_posix.go:159 +0x1e
+net.(*TCPListener).Accept(0xc00016f380)
+	/usr/local/go/src/net/tcpsock.go:372 +0x30
+net/http.(*Server).Serve(0xc000564000, {0xc2b3e8, 0xc00016f380})
+	/usr/local/go/src/net/http/server.go:3330 +0x30c
+main.main.func1()
+	/app/main.go:96 +0x25
+created by main.main in goroutine 1
+	/app/main.go:95 +0x4bc
+
+goroutine 38 [chan receive]:
+gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/cache.(*InMemoryCache).startCleanup(0xc000524340)
+	/app/internal/infrastructure/cache/cache.go:74 +0xa5
+created by gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/cache.NewInMemoryCache in goroutine 1
+	/app/internal/infrastructure/cache/cache.go:32 +0x8a
+
+goroutine 49 [syscall, 5 minutes]:
+os/signal.signal_recv()
+	/usr/local/go/src/runtime/sigqueue.go:152 +0x29
+os/signal.loop()
+	/usr/local/go/src/os/signal/signal_unix.go:23 +0x13
+created by os/signal.Notify.func1.1 in goroutine 1
+	/usr/local/go/src/os/signal/signal.go:151 +0x1f
+
+goroutine 9 [chan receive]:
+main.WorkerTest()
+	/app/main.go:192 +0x4b
+created by main.main in goroutine 1
+	/app/main.go:101 +0x4c8
+
+goroutine 1486 [IO wait]:
+internal/poll.runtime_pollWait(0x75ecee4a55b0, 0x72)
+	/usr/local/go/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xc000d12000?, 0xc0011e6041?, 0x0)
+	/usr/local/go/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/usr/local/go/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xc000d12000, {0xc0011e6041, 0x1, 0x1})
+	/usr/local/go/src/internal/poll/fd_unix.go:165 +0x27a
+net.(*netFD).Read(0xc000d12000, {0xc0011e6041?, 0xc22de0?, 0xc00106ce01?})
+	/usr/local/go/src/net/fd_posix.go:55 +0x25
+net.(*conn).Read(0xc000d2e150, {0xc0011e6041?, 0x409240?, 0x1883001?})
+	/usr/local/go/src/net/net.go:189 +0x45
+net/http.(*connReader).backgroundRead(0xc0011e6030)
+	/usr/local/go/src/net/http/server.go:690 +0x37
+created by net/http.(*connReader).startBackgroundRead in goroutine 1591
+	/usr/local/go/src/net/http/server.go:686 +0xb6

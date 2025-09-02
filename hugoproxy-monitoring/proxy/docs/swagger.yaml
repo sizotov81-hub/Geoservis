@@ -1,0 +1,526 @@
+basePath: /
+definitions:
+  entity.CreateUserRequest:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+      password:
+        example: password123
+        type: string
+    type: object
+  entity.UpdateUserRequest:
+    properties:
+      email:
+        example: newemail@example.com
+        type: string
+      password:
+        example: newpassword123
+        type: string
+    type: object
+  entity.User:
+    properties:
+      created_at:
+        description: Время создания
+        type: string
+      deleted_at:
+        description: Время удаления
+        type: string
+      email:
+        description: Пример email пользователя
+        example: user@example.com
+        type: string
+      id:
+        description: Пример ID пользователя
+        example: 1
+        type: integer
+      updated_at:
+        description: Время обновления
+        type: string
+    type: object
+  main.ErrorResponse:
+    description: Стандартный формат ответа при возникновении ошибки
+    properties:
+      error:
+        description: Описание ошибки
+        example: error message
+        type: string
+    type: object
+  main.LoginRequest:
+    description: Данные для входа пользователя
+    properties:
+      email:
+        description: Email пользователя
+        example: user@example.com
+        type: string
+      password:
+        description: Пароль пользователя
+        example: securepassword123
+        type: string
+    type: object
+  main.LoginResponse:
+    description: Ответ сервера с JWT токеном после успешной аутентификации
+    properties:
+      token:
+        description: JWT токен
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    type: object
+  main.RegisterRequest:
+    description: Данные для регистрации нового пользователя
+    properties:
+      email:
+        description: Email пользователя
+        example: user@example.com
+        type: string
+      password:
+        description: Пароль пользователя
+        example: securepassword123
+        type: string
+    type: object
+  responder.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  service.Address:
+    description: Информация об адресе
+    properties:
+      city:
+        description: Название города
+        example: Москва
+        type: string
+      house:
+        description: Номер дома
+        example: "11"
+        type: string
+      lat:
+        description: Широта
+        example: "55.7558"
+        type: string
+      lon:
+        description: Долгота
+        example: "37.6173"
+        type: string
+      street:
+        description: Название улицы
+        example: Ленина
+        type: string
+    type: object
+  service.GeocodeRequest:
+    description: Запрос для геокодирования координат
+    properties:
+      lat:
+        description: Широта
+        example: "55.7558"
+        type: string
+      lng:
+        description: Долгота
+        example: "37.6173"
+        type: string
+    type: object
+  service.GeocodeResponse:
+    description: Ответ с геокодированными адресами
+    properties:
+      addresses:
+        description: Список найденных адресов
+        items:
+          $ref: '#/definitions/service.Address'
+        type: array
+    type: object
+  service.SearchRequest:
+    description: Запрос для поиска адреса
+    properties:
+      query:
+        description: Поисковый запрос (город, улица, дом)
+        example: Москва Ленина 11
+        type: string
+    type: object
+  service.SearchResponse:
+    description: Ответ с найденными адресами
+    properties:
+      addresses:
+        description: Список найденных адресов
+        items:
+          $ref: '#/definitions/service.Address'
+        type: array
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: API для поиска адресов и геокодирования
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Геосервис API
+  version: "1.0"
+paths:
+  /api/address/geocode:
+    post:
+      consumes:
+      - application/json
+      description: Получение адреса по координатам
+      parameters:
+      - description: Координаты для геокодирования
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.GeocodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешный ответ с найденными адресами
+          schema:
+            $ref: '#/definitions/service.GeocodeResponse'
+        "400":
+          description: Некорректный запрос
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+        "401":
+          description: Не авторизован
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Геокодирование адреса
+      tags:
+      - address
+  /api/address/search:
+    post:
+      consumes:
+      - application/json
+      description: Поиск адреса по строке запроса
+      parameters:
+      - description: Поисковый запрос
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.SearchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешный ответ с найденными адресами
+          schema:
+            $ref: '#/definitions/service.SearchResponse'
+        "400":
+          description: Некорректный запрос
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+        "401":
+          description: Не авторизован
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Поиск адреса
+      tags:
+      - address
+  /api/login:
+    post:
+      consumes:
+      - application/json
+      description: Проверяет учетные данные и возвращает JWT токен
+      parameters:
+      - description: Данные для входа
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/main.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешная аутентификация
+          schema:
+            $ref: '#/definitions/main.LoginResponse'
+        "400":
+          description: Некорректные данные запроса
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "401":
+          description: Ошибка аутентификации
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Ошибка сервера
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Аутентификация пользователя
+      tags:
+      - auth
+  /api/register:
+    post:
+      consumes:
+      - application/json
+      description: Создает нового пользователя в системе
+      parameters:
+      - description: Данные для регистрации
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/main.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Пользователь успешно зарегистрирован
+        "400":
+          description: Некорректные данные запроса
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "409":
+          description: Пользователь уже существует
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Ошибка сервера
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Регистрация нового пользователя
+      tags:
+      - auth
+  /api/users:
+    get:
+      consumes:
+      - application/json
+      description: Get list of users with pagination
+      parameters:
+      - default: 10
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/entity.User'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List users
+      tags:
+      - users
+    post:
+      consumes:
+      - application/json
+      description: Register a new user with email and password
+      parameters:
+      - default: Bearer <ТОКЕН>
+        description: Токен авторизации
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: User registration data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/entity.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/entity.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Register a new user
+      tags:
+      - users
+  /api/users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Soft delete a user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete user
+      tags:
+      - users
+    get:
+      consumes:
+      - application/json
+      description: Get user details by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entity.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get user by ID
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: Update user details
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: User data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/entity.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entity.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update user
+      tags:
+      - users
+  /api/users/email:
+    get:
+      consumes:
+      - application/json
+      description: Get user details by email address
+      parameters:
+      - description: User email
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entity.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/responder.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get user by email
+      tags:
+      - users
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
