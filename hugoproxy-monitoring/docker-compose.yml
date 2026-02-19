@@ -11,11 +11,11 @@ services:
       - DB_HOST=db
       - DB_PORT=5432
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_POSTGRES_PASSWORD:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - DB_NAME=${DB_NAME:-postgres}
       - JWT_SECRET=${JWT_SECRET:-secret}
-      - DADATA_API_KEY=11e2696a3bd261dd74c66c9d69f4ec1e12d1cce2
-      - DADATA_SECRET_KEY=ceba6b1057574c7a3c9dd91717279cce3b266690
+      - DADATA_API_KEY=${DADATA_API_KEY:-11e2696a3bd261dd74c66c9d69f4ec1e12d1cce2}
+      - DADATA_SECRET_KEY=${DADATA_SECRET_KEY:-ceba6b1057574c7a3c9dd91717279cce3b266690}
     networks:
       - monitoring
     labels:
@@ -68,7 +68,7 @@ services:
     networks:
       - monitoring
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
