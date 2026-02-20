@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -88,6 +89,7 @@ func (g *GeoService) AddressSearch(input string) ([]*Address, error) {
 	metrics.ObserveExternalAPIRequest("AddressSearch", duration)
 
 	if err != nil {
+		log.Printf("ERROR: external API error in AddressSearch: %v", err)
 		return nil, err
 	}
 

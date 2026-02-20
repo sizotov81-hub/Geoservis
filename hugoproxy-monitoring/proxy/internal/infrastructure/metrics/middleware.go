@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,6 +12,12 @@ import (
 // HTTPMetricsMiddleware middleware для сбора HTTP метрик
 func HTTPMetricsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[PANIC] HTTPMetricsMiddleware recovered: %v", r)
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+		}()
 		start := time.Now()
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 

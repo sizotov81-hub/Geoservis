@@ -1,6 +1,7 @@
 package geo_proxy
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -37,7 +38,12 @@ func (p *GeoServiceProxy) AddressSearch(input string) ([]*service.Address, error
 	metrics.ObserveCacheRequest("AddressSearch", found, cacheDuration)
 
 	if found {
-		return cached.([]*service.Address), nil
+		addresses, ok := cached.([]*service.Address)
+		if !ok {
+			log.Printf("Type mismatch in AddressSearch: expected []*service.Address, got %T", cached)
+			return nil, fmt.Errorf("cache data type mismatch")
+		}
+		return addresses, nil
 	}
 
 	// Если данных нет в кэше, запрашиваем у оригинального сервиса
