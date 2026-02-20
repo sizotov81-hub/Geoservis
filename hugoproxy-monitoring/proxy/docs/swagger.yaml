@@ -191,7 +191,7 @@ paths:
           schema:
             $ref: '#/definitions/responder.ErrorResponse'
       security:
-      - ApiKeyAuth: []
+      - JWTAuth: []
       summary: Геокодирование адреса
       tags:
       - address
@@ -227,7 +227,7 @@ paths:
           schema:
             $ref: '#/definitions/responder.ErrorResponse'
       security:
-      - ApiKeyAuth: []
+      - JWTAuth: []
       summary: Поиск адреса
       tags:
       - address
@@ -235,7 +235,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Проверяет учетные данные и возвращает JWT токен
+      description: Проверяет учетные данные и возвращает JWT токен. Токен генерируется с использованием секретного ключа из переменной окружения JWT_SECRET.
       parameters:
       - description: Данные для входа
         in: body
@@ -331,7 +331,7 @@ paths:
           schema:
             $ref: '#/definitions/responder.ErrorResponse'
       security:
-      - ApiKeyAuth: []
+      - JWTAuth: []
       summary: List users
       tags:
       - users
@@ -405,7 +405,7 @@ paths:
           schema:
             $ref: '#/definitions/responder.ErrorResponse'
       security:
-      - ApiKeyAuth: []
+      - JWTAuth: []
       summary: Delete user
       tags:
       - users
@@ -514,7 +514,7 @@ paths:
           schema:
             $ref: '#/definitions/responder.ErrorResponse'
       security:
-      - ApiKeyAuth: []
+      - JWTAuth: []
       summary: Get user by email
       tags:
       - users
@@ -523,4 +523,10 @@ securityDefinitions:
     in: header
     name: Authorization
     type: apiKey
+    description: API ключ для аутентификации. Формат: 'Bearer <token>'
+  JWTAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+    description: JWT токен для аутентификации. Токен генерируется с использованием секретного ключа из переменной окружения JWT_SECRET. Формат: 'Bearer <token>'
 swagger: "2.0"

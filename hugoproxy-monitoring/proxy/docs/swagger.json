@@ -17,12 +17,26 @@
     },
     "host": "localhost:8080",
     "basePath": "/",
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "in": "header",
+            "name": "Authorization",
+            "type": "apiKey",
+            "description": "API ключ для аутентификации. Формат: 'Bearer <token>'"
+        },
+        "JWTAuth": {
+            "in": "header",
+            "name": "Authorization",
+            "type": "apiKey",
+            "description": "JWT токен для аутентификации. Токен генерируется с использованием секретного ключа из переменной окружения JWT_SECRET. Формат: 'Bearer <token>'"
+        }
+    },
     "paths": {
         "/api/address/geocode": {
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "JWTAuth": []
                     }
                 ],
                 "description": "Получение адреса по координатам",
@@ -79,7 +93,7 @@
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "JWTAuth": []
                     }
                 ],
                 "description": "Поиск адреса по строке запроса",
@@ -134,7 +148,7 @@
         },
         "/api/login": {
             "post": {
-                "description": "Проверяет учетные данные и возвращает JWT токен",
+                "description": "Проверяет учетные данные и возвращает JWT токен. Токен генерируется с использованием секретного ключа из переменной окружения JWT_SECRET.",
                 "consumes": [
                     "application/json"
                 ],
@@ -237,7 +251,7 @@
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "JWTAuth": []
                     }
                 ],
                 "description": "Get list of users with pagination",
@@ -359,7 +373,7 @@
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "JWTAuth": []
                     }
                 ],
                 "description": "Get user details by email address",
@@ -414,7 +428,7 @@
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "JWTAuth": []
                     }
                 ],
                 "description": "Get user details by ID",
