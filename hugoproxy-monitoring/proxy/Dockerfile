@@ -1,20 +1,43 @@
 # Build stage
-FROM golang:1.23 as builder
+FROM golang:1.23-alpine AS builder
+
+# Install build dependencies
+RUN apk --no-cache add git
 
 WORKDIR /app
-COPY . .
 
+# Copy only dependency files first for better caching
+COPY go.mod go.sum ./
 RUN go mod download
-RUN CGO_ENABLED=0 GOOS=linux go build -o hugoproxy .
 
-# Runtime stage
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-WORKDIR /root/
+# Copy source code
+COPY *.go ./
+COPY internal/ ./internal/
+COPY static/ ./static/
+
+# Build the binary with static linking
+RUN CGO_ENABLED=0 GOOS=linux go build -o hugoproxy -ldflags="-s -w" .
+
+# Runtime stage - minimal image
+FROM scratch
+
+# Copy CA certificates for HTTPS support
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Copy the binary
 COPY --from=builder /app/hugoproxy .
-COPY --from=builder /app/static ./static
-COPY .env .
-# Копируем директорию с миграциями
-COPY --from=builder /app/internal/infrastructure/db/migrations ./migrations
-CMD ["./hugoproxy"]
 
+# Copy static files
+COPY --from=builder /app/static ./static
+
+# Copy database migrations
+COPY --from=builder /app/internal/infrastructure/db/migrations ./migrations
+
+# Create non-root user for security
+USER 1000:1000
+
+# Set working directory
+WORKDIR /root/
+
+# Run the application
+CMD ["./hugoproxy"]
