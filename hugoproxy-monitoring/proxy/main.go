@@ -53,6 +53,12 @@ func main() {
 		log.Printf("Warning: couldn't load .env file: %v", err)
 	}
 
+	// Check JWT_SECRET environment variable
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatalf("JWT_SECRET environment variable is required but not set")
+	}
+
 	// Initialize database
 	dbConn, err := db.NewPostgresDB()
 	if err != nil {

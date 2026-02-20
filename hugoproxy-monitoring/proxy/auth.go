@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 
@@ -28,7 +30,11 @@ var (
 
 func init() {
 	// Инициализация JWT аутентификации с алгоритмом HS256
-	tokenAuth = jwtauth.New("HS256", []byte("secret"), nil)
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatalf("JWT_SECRET environment variable is required")
+	}
+	tokenAuth = jwtauth.New("HS256", []byte(jwtSecret), nil)
 }
 
 // User представляет модель пользователя системы
@@ -160,12 +166,14 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Проверка существования пользователя
 	if !exists {
+		log.Printf("Authentication failed: user not found, email=%s, ip=%s", req.Email, r.RemoteAddr)
 		http.Error(w, ErrAuthFailed.Error(), http.StatusUnauthorized)
 		return
 	}
 
 	// Проверка пароля
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		log.Printf("Authentication failed: invalid password, email=%s, ip=%s", req.Email, r.RemoteAddr)
 		http.Error(w, ErrAuthFailed.Error(), http.StatusUnauthorized)
 		return
 	}
