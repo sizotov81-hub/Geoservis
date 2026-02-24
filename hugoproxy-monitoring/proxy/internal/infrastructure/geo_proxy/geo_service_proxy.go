@@ -5,20 +5,20 @@ import (
 	"fmt"
 	"time"
 
-	"gitlab.com/s.izotov81/hugoproxy/internal/core/service"
 	"gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/cache"
 	"gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/metrics"
+	"gitlab.com/s.izotov81/hugoproxy/internal/usecase/geo"
 )
 
 // GeoServiceProxy прокси для кэширования запросов к геосервису
 type GeoServiceProxy struct {
-	geoService service.GeoServicer
+	geoService geo.GeoServicer
 	cache      cache.Cache
 	ttl        time.Duration
 }
 
 // NewGeoServiceProxy создает новый экземпляр прокси
-func NewGeoServiceProxy(geoService service.GeoServicer, cache cache.Cache, ttl time.Duration) *GeoServiceProxy {
+func NewGeoServiceProxy(geoService geo.GeoServicer, cache cache.Cache, ttl time.Duration) *GeoServiceProxy {
 	return &GeoServiceProxy{
 		geoService: geoService,
 		cache:      cache,
@@ -27,7 +27,7 @@ func NewGeoServiceProxy(geoService service.GeoServicer, cache cache.Cache, ttl t
 }
 
 // AddressSearch ищет адреса с использованием кэширования
-func (p *GeoServiceProxy) AddressSearch(ctx context.Context, input string) ([]*service.Address, error) {
+func (p *GeoServiceProxy) AddressSearch(ctx context.Context, input string) ([]*geo.Address, error) {
 	cacheKey := "search:" + input
 
 	// Попытка получить данные из кэша
@@ -38,9 +38,9 @@ func (p *GeoServiceProxy) AddressSearch(ctx context.Context, input string) ([]*s
 	metrics.ObserveCacheRequest("AddressSearch", found, cacheDuration)
 
 	if found {
-		addresses, ok := cached.([]*service.Address)
+		addresses, ok := cached.([]*geo.Address)
 		if !ok {
-			return nil, fmt.Errorf("cache data type mismatch: expected []*service.Address, got %T", cached)
+			return nil, fmt.Errorf("cache data type mismatch: expected []*geo.Address, got %T", cached)
 		}
 		return addresses, nil
 	}
@@ -61,7 +61,7 @@ func (p *GeoServiceProxy) AddressSearch(ctx context.Context, input string) ([]*s
 }
 
 // GeoCode выполняет геокодирование с использованием кэширования
-func (p *GeoServiceProxy) GeoCode(ctx context.Context, lat, lng string) ([]*service.Address, error) {
+func (p *GeoServiceProxy) GeoCode(ctx context.Context, lat, lng string) ([]*geo.Address, error) {
 	cacheKey := fmt.Sprintf("geocode:%s:%s", lat, lng)
 
 	// Попытка получить данные из кэша
@@ -72,9 +72,9 @@ func (p *GeoServiceProxy) GeoCode(ctx context.Context, lat, lng string) ([]*serv
 	metrics.ObserveCacheRequest("GeoCode", found, cacheDuration)
 
 	if found {
-		addresses, ok := cached.([]*service.Address)
+		addresses, ok := cached.([]*geo.Address)
 		if !ok {
-			return nil, fmt.Errorf("cache data type mismatch: expected []*service.Address, got %T", cached)
+			return nil, fmt.Errorf("cache data type mismatch: expected []*geo.Address, got %T", cached)
 		}
 		return addresses, nil
 	}

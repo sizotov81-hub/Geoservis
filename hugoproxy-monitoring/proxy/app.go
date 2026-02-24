@@ -15,9 +15,10 @@ import (
 	"go.uber.org/zap"
 
 	"gitlab.com/s.izotov81/hugoproxy/internal/config"
-	"gitlab.com/s.izotov81/hugoproxy/internal/core/controller"
-	"gitlab.com/s.izotov81/hugoproxy/internal/core/repository"
-	"gitlab.com/s.izotov81/hugoproxy/internal/core/service"
+	"gitlab.com/s.izotov81/hugoproxy/internal/interface/http/handler"
+	authHandler "gitlab.com/s.izotov81/hugoproxy/internal/interface/http/handler/auth"
+	authMiddleware "gitlab.com/s.izotov81/hugoproxy/internal/interface/http/middleware/auth"
+	"gitlab.com/s.izotov81/hugoproxy/internal/interface/persistence"
 	"gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/cache"
 	"gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/db"
 	"gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/db/adapter"
@@ -27,6 +28,8 @@ import (
 	"gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/metrics"
 	"gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/pprof"
 	"gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/worker"
+	"gitlab.com/s.izotov81/hugoproxy/internal/usecase/geo"
+	"gitlab.com/s.izotov81/hugoproxy/internal/usecase/user"
 	"gitlab.com/s.izotov81/hugoproxy/pkg/responder"
 
 	_ "gitlab.com/s.izotov81/hugoproxy/docs"
@@ -44,8 +47,8 @@ type App struct {
 
 // Dependencies содержит все зависимости приложения
 type Dependencies struct {
-	userController    *controller.UserController
-	geoController     *controller.GeoController
+	userController    *handler.UserController
+	geoController     *handler.GeoController
 	pprofController   *pprof.PprofController
 	authMiddleware    func(next http.Handler) http.Handler
 	worker            *worker.Worker
@@ -163,21 +166,21 @@ func (a *App) Cleanup() error {
 // initializeDependencies инициализирует все зависимости приложения
 func (a *App) initializeDependencies() *Dependencies {
 	sqlAdapter := adapter.NewSQLAdapter(a.db)
-	userRepo := repository.NewUserRepository(sqlAdapter, a.db)
-	userService := service.NewUserService(userRepo)
+	userRepo := persistence.NewUserRepository(sqlAdapter, a.db)
+	userService := user.NewUserService(userRepo)
 	jsonResponder := responder.NewJSONResponder()
-	userController := controller.NewUserController(userService, jsonResponder)
+	userController := handler.NewUserController(userService, jsonResponder)
 
 	pprofController := pprof.NewPprofController(jsonResponder)
 
 	// Initialize geo service with caching
-	realGeoService := service.NewGeoService(a.cfg.Dadata.APIKey, a.cfg.Dadata.SecretKey)
+	realGeoService := geo.NewGeoService(a.cfg.Dadata.APIKey, a.cfg.Dadata.SecretKey)
 	memoryCache := cache.NewInMemoryCache()
 	geoService := geo_proxy.NewGeoServiceProxy(realGeoService, memoryCache, 5*time.Minute)
-	geoController := controller.NewGeoController(geoService, jsonResponder)
+	geoController := handler.NewGeoController(geoService, jsonResponder)
 
 	// Initialize auth middleware
-	authMiddleware := newAuthMiddleware(a.cfg.Auth.JWTSecret)
+	authMiddlewareFunc := authMiddleware.NewMiddleware(a.cfg.Auth.JWTSecret)
 
 	// Initialize and start worker if enabled
 	var workerInstance *worker.Worker
@@ -190,7 +193,7 @@ func (a *App) initializeDependencies() *Dependencies {
 		userController:    userController,
 		geoController:     geoController,
 		pprofController:   pprofController,
-		authMiddleware:    authMiddleware,
+		authMiddleware:    authMiddlewareFunc,
 		worker:            workerInstance,
 	}
 }
@@ -214,8 +217,8 @@ func (a *App) setupRouter() *chi.Mux {
 
 	// Auth routes
 	r.Group(func(r chi.Router) {
-		r.Post("/api/register", RegisterHandler)
-		r.Post("/api/login", LoginHandler)
+		r.Post("/api/register", authHandler.RegisterHandler)
+		r.Post("/api/login", authHandler.LoginHandler)
 	})
 
 	// User routes
