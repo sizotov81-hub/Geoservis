@@ -8,7 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"gitlab.com/s.izotov81/hugoproxy/internal/core/service"
+
+	"gitlab.com/s.izotov81/hugoproxy/internal/usecase/geo"
 )
 
 // MockGeoService мок геосервиса для тестирования
@@ -16,20 +17,20 @@ type MockGeoService struct {
 	mock.Mock
 }
 
-func (m *MockGeoService) AddressSearch(ctx context.Context, input string) ([]*service.Address, error) {
+func (m *MockGeoService) AddressSearch(ctx context.Context, input string) ([]*geo.Address, error) {
 	args := m.Called(ctx, input)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*service.Address), args.Error(1)
+	return args.Get(0).([]*geo.Address), args.Error(1)
 }
 
-func (m *MockGeoService) GeoCode(ctx context.Context, lat, lng string) ([]*service.Address, error) {
+func (m *MockGeoService) GeoCode(ctx context.Context, lat, lng string) ([]*geo.Address, error) {
 	args := m.Called(ctx, lat, lng)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*service.Address), args.Error(1)
+	return args.Get(0).([]*geo.Address), args.Error(1)
 }
 
 // MockCache мок кэша для тестирования
@@ -56,7 +57,7 @@ func TestGeoServiceProxy_AddressSearch_CacheHit(t *testing.T) {
 	proxy := NewGeoServiceProxy(mockService, mockCache, 5*time.Minute)
 
 	// Ожидаемый результат
-	expected := []*service.Address{{City: "Moscow"}}
+	expected := []*geo.Address{{City: "Moscow"}}
 
 	// Настройка моков
 	mockCache.On("Get", "search:query").Return(expected, true).Once()
@@ -76,7 +77,7 @@ func TestGeoServiceProxy_AddressSearch_CacheMiss(t *testing.T) {
 	proxy := NewGeoServiceProxy(mockService, mockCache, 5*time.Minute)
 
 	// Ожидаемый результат
-	expected := []*service.Address{{City: "Moscow"}}
+	expected := []*geo.Address{{City: "Moscow"}}
 
 	// Настройка моков
 	mockCache.On("Get", "search:query").Return(nil, false).Once()
@@ -101,7 +102,7 @@ func TestGeoServiceProxy_AddressSearch_ServiceError(t *testing.T) {
 
 	// Настройка моков
 	mockCache.On("Get", "search:query").Return(nil, false).Once()
-	mockService.On("AddressSearch", mock.Anything, "query").Return([]*service.Address(nil), expectedError).Once()
+	mockService.On("AddressSearch", mock.Anything, "query").Return([]*geo.Address(nil), expectedError).Once()
 	// Set не должен вызываться при ошибке
 
 	result, err := proxy.AddressSearch(context.Background(), "query")
@@ -119,7 +120,7 @@ func TestGeoServiceProxy_GeoCode_CacheHit(t *testing.T) {
 	proxy := NewGeoServiceProxy(mockService, mockCache, 5*time.Minute)
 
 	// Ожидаемый результат
-	expected := []*service.Address{{City: "Moscow"}}
+	expected := []*geo.Address{{City: "Moscow"}}
 
 	// Настройка моков
 	mockCache.On("Get", "geocode:55.7558:37.6173").Return(expected, true).Once()
@@ -139,7 +140,7 @@ func TestGeoServiceProxy_GeoCode_CacheMiss(t *testing.T) {
 	proxy := NewGeoServiceProxy(mockService, mockCache, 5*time.Minute)
 
 	// Ожидаемый результат
-	expected := []*service.Address{{City: "Moscow"}}
+	expected := []*geo.Address{{City: "Moscow"}}
 
 	// Настройка моков
 	mockCache.On("Get", "geocode:55.7558:37.6173").Return(nil, false).Once()
@@ -164,7 +165,7 @@ func TestGeoServiceProxy_GeoCode_ServiceError(t *testing.T) {
 
 	// Настройка моков
 	mockCache.On("Get", "geocode:55.7558:37.6173").Return(nil, false).Once()
-	mockService.On("GeoCode", mock.Anything, "55.7558", "37.6173").Return([]*service.Address(nil), expectedError).Once()
+	mockService.On("GeoCode", mock.Anything, "55.7558", "37.6173").Return([]*geo.Address(nil), expectedError).Once()
 
 	result, err := proxy.GeoCode(context.Background(), "55.7558", "37.6173")
 	assert.Error(t, err)

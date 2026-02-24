@@ -14,15 +14,22 @@ import (
 // HTTPMetricsMiddleware middleware для сбора HTTP метрик
 func HTTPMetricsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+
 		defer func() {
 			if rec := recover(); rec != nil {
 				log := logger.FromContext(r.Context())
 				log.Error("[PANIC] HTTPMetricsMiddleware recovered", zap.Any("panic", rec))
+				
+				// Записываем метрики для паники
+				duration := time.Since(start)
+				ObserveHTTPRequest(r.URL.Path, r.Method, "500", duration)
+				
+				// Устанавливаем статус 500
 				w.WriteHeader(http.StatusInternalServerError)
 			}
 		}()
-		start := time.Now()
-		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 
 		next.ServeHTTP(ww, r)
 
