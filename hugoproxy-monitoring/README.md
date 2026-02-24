@@ -357,6 +357,26 @@ GET /api/pprof/profiles
 Authorization: Bearer {token}
 ```
 
+### Стандартные pprof endpoints (через middleware)
+
+```bash
+# CPU профиль (через pprof.Handler)
+GET /mycustompath/pprof/profile?seconds=30
+Authorization: Bearer {token}
+
+# Heap профиль
+GET /mycustompath/pprof/heap
+Authorization: Bearer {token}
+
+# Trace
+GET /mycustompath/pprof/trace
+Authorization: Bearer {token}
+
+# Все доступные профили
+GET /mycustompath/pprof/
+Authorization: Bearer {token}
+```
+
 ### Просмотр профилей
 
 ```bash
