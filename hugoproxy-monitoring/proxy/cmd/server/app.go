@@ -35,6 +35,8 @@ import (
 	_ "gitlab.com/s.izotov81/hugoproxy/docs"
 )
 
+type authHandlerKey struct{}
+
 type App struct {
 	cfg          *config.Config
 	db           *sqlx.DB
@@ -180,6 +182,9 @@ func (a *App) setupRouter() *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(customMiddleware.RequestID)
+	r.Use(customMiddleware.SecurityHeaders)
+	r.Use(customMiddleware.CORS(customMiddleware.DefaultCORSConfig()))
+	r.Use(customMiddleware.RateLimit(customMiddleware.DefaultRateLimitConfig()))
 	r.Use(metrics.HTTPMetricsMiddleware)
 	r.Use(middleware.Recoverer)
 
@@ -189,7 +194,18 @@ func (a *App) setupRouter() *chi.Mux {
 
 	r.Get("/swagger-ui/*", http.StripPrefix("/swagger-ui/", http.FileServer(http.Dir("./static"))).ServeHTTP)
 
+	authHandlerInstance := authHandler.NewHandler(
+		persistence.NewUserRepository(adapter.NewSQLAdapter(a.db), a.db),
+		a.cfg.Auth.JWTSecret,
+	)
+
 	r.Group(func(r chi.Router) {
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				ctx := context.WithValue(r.Context(), authHandlerKey{}, authHandlerInstance)
+				next.ServeHTTP(w, r.WithContext(ctx))
+			})
+		})
 		r.Post("/api/register", authHandler.RegisterHandler)
 		r.Post("/api/login", authHandler.LoginHandler)
 	})
