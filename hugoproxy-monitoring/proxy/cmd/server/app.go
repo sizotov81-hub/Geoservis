@@ -35,7 +35,6 @@ import (
 	_ "gitlab.com/s.izotov81/hugoproxy/docs"
 )
 
-// App представляет приложение
 type App struct {
 	cfg          *config.Config
 	db           *sqlx.DB
@@ -45,7 +44,6 @@ type App struct {
 	shutdown     *ShutdownManager
 }
 
-// Dependencies содержит все зависимости приложения
 type Dependencies struct {
 	userController    *handler.UserController
 	geoController     *handler.GeoController
@@ -54,39 +52,32 @@ type Dependencies struct {
 	worker            *worker.Worker
 }
 
-// NewApp создает новое приложение
 func NewApp() (*App, error) {
 	app := &App{}
 	return app, nil
 }
 
-// Initialize инициализирует приложение
 func (a *App) Initialize() error {
 	a.logger = logger.Get()
 
-	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 	a.cfg = cfg
 
-	// Initialize database
 	dbConn, err := db.NewPostgresDB(cfg.Database)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 	a.db = dbConn
 
-	// Run migrations
 	if err := db.RunMigrations(dbConn, cfg.Database.MigrationsPath); err != nil {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	// Initialize dependencies
 	a.dependencies = a.initializeDependencies()
 
-	// Initialize router
 	r := a.setupRouter()
 	r.Handle("/metrics", promhttp.Handler())
 
@@ -97,24 +88,20 @@ func (a *App) Initialize() error {
 		WriteTimeout: a.cfg.Server.WriteTimeout,
 	}
 
-	// Initialize shutdown manager
 	a.shutdown = NewShutdownManager(a.cfg.Server.ShutdownTimeout, a.dependencies.worker, a.logger)
 
 	return nil
 }
 
-// Run запускает приложение
 func (a *App) Run(ctx context.Context) error {
 	a.logger.Info("Server starting", zap.String("addr", a.cfg.Server.Addr()))
 
-	// Create listener
 	listener, err := net.Listen("tcp", a.cfg.Server.Addr())
 	if err != nil {
 		return fmt.Errorf("failed to create listener: %w", err)
 	}
 	defer listener.Close()
 
-	// Start server in goroutine
 	errCh := make(chan error, 1)
 	go func() {
 		if err := a.server.Serve(listener); err != nil && err != http.ErrServerClosed {
@@ -123,12 +110,10 @@ func (a *App) Run(ctx context.Context) error {
 		close(errCh)
 	}()
 
-	// Wait for shutdown signal
 	<-a.shutdown.WaitForShutdown(ctx)
 
 	a.logger.Info("Server is shutting down...")
 
-	// Graceful shutdown with timeout
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), a.cfg.Server.ShutdownTimeout)
 	defer cancel()
 
@@ -139,7 +124,6 @@ func (a *App) Run(ctx context.Context) error {
 
 	a.logger.Info("Server stopped gracefully")
 
-	// Check for server errors
 	if err := <-errCh; err != nil {
 		return err
 	}
@@ -147,7 +131,6 @@ func (a *App) Run(ctx context.Context) error {
 	return nil
 }
 
-// Cleanup очищает ресурсы приложения
 func (a *App) Cleanup() error {
 	if a.db != nil {
 		if err := a.db.Close(); err != nil {
@@ -155,7 +138,6 @@ func (a *App) Cleanup() error {
 		}
 	}
 
-	// Sync logger
 	if err := logger.Get().Sync(); err != nil {
 		return fmt.Errorf("failed to sync logger: %w", err)
 	}
@@ -163,7 +145,6 @@ func (a *App) Cleanup() error {
 	return nil
 }
 
-// initializeDependencies инициализирует все зависимости приложения
 func (a *App) initializeDependencies() *Dependencies {
 	sqlAdapter := adapter.NewSQLAdapter(a.db)
 	userRepo := persistence.NewUserRepository(sqlAdapter, a.db)
@@ -173,16 +154,13 @@ func (a *App) initializeDependencies() *Dependencies {
 
 	pprofController := pprof.NewPprofController(jsonResponder)
 
-	// Initialize geo service with caching
 	realGeoService := geo.NewGeoService(a.cfg.Dadata.APIKey, a.cfg.Dadata.SecretKey)
 	memoryCache := cache.NewInMemoryCache()
 	geoService := geo_proxy.NewGeoServiceProxy(realGeoService, memoryCache, 5*time.Minute)
 	geoController := handler.NewGeoController(geoService, jsonResponder)
 
-	// Initialize auth middleware
 	authMiddlewareFunc := authMiddleware.NewMiddleware(a.cfg.Auth.JWTSecret)
 
-	// Initialize and start worker if enabled
 	var workerInstance *worker.Worker
 	if a.cfg.Worker.Enabled {
 		workerInstance = worker.NewWorker(a.cfg.Worker.FilePath, a.cfg.Worker.Interval)
@@ -198,30 +176,24 @@ func (a *App) initializeDependencies() *Dependencies {
 	}
 }
 
-// setupRouter настраивает маршрутизатор
 func (a *App) setupRouter() *chi.Mux {
 	r := chi.NewRouter()
 
-	// Middleware
 	r.Use(customMiddleware.RequestID)
 	r.Use(metrics.HTTPMetricsMiddleware)
 	r.Use(middleware.Recoverer)
 
-	// Swagger
 	r.Get("/swagger/*", httpSwagger.Handler(
 		httpSwagger.URL("http://localhost:8080/swagger/doc.json"),
 	))
 
-	// Custom Swagger UI with auto-auth
 	r.Get("/swagger-ui/*", http.StripPrefix("/swagger-ui/", http.FileServer(http.Dir("./static"))).ServeHTTP)
 
-	// Auth routes
 	r.Group(func(r chi.Router) {
 		r.Post("/api/register", authHandler.RegisterHandler)
 		r.Post("/api/login", authHandler.LoginHandler)
 	})
 
-	// User routes
 	r.Group(func(r chi.Router) {
 		r.Use(a.dependencies.authMiddleware)
 		r.Get("/api/users", a.dependencies.userController.ListUsers)
@@ -232,14 +204,12 @@ func (a *App) setupRouter() *chi.Mux {
 		r.Get("/api/users/email", a.dependencies.userController.GetUserByEmail)
 	})
 
-	// Geo routes
 	r.Group(func(r chi.Router) {
 		r.Use(a.dependencies.authMiddleware)
 		r.Post("/api/address/search", a.dependencies.geoController.Search)
 		r.Post("/api/address/geocode", a.dependencies.geoController.Geocode)
 	})
 
-	// Protected pprof routes
 	r.Group(func(r chi.Router) {
 		r.Use(a.dependencies.authMiddleware)
 		r.Mount("/mycustompath/pprof", pprof.Handler())

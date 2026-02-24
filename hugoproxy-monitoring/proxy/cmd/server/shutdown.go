@@ -13,7 +13,6 @@ import (
 	"gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/worker"
 )
 
-// ShutdownManager управляет корректным завершением работы приложения
 type ShutdownManager struct {
 	timeout         time.Duration
 	worker          *worker.Worker
@@ -24,7 +23,6 @@ type ShutdownManager struct {
 	mu              sync.RWMutex
 }
 
-// NewShutdownManager создает новый менеджер завершения работы
 func NewShutdownManager(
 	timeout time.Duration,
 	worker *worker.Worker,
@@ -38,7 +36,6 @@ func NewShutdownManager(
 	}
 }
 
-// WaitForShutdown ожидает сигнал завершения и возвращает канал
 func (s *ShutdownManager) WaitForShutdown(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
 
@@ -54,7 +51,6 @@ func (s *ShutdownManager) WaitForShutdown(ctx context.Context) <-chan struct{} {
 
 		s.logger.Info("Shutdown signal received")
 
-		// Stop worker if running
 		if s.worker != nil {
 			workerCtx, cancel := context.WithTimeout(ctx, s.timeout)
 			defer cancel()
@@ -65,14 +61,12 @@ func (s *ShutdownManager) WaitForShutdown(ctx context.Context) <-chan struct{} {
 	return done
 }
 
-// IsShuttingDown возвращает true, если началось завершение работы
 func (s *ShutdownManager) IsShuttingDown() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.shutdownStarted
 }
 
-// ForceShutdown принудительно завершает работу
 func (s *ShutdownManager) ForceShutdown() {
 	s.shutdownOnce.Do(func() {
 		close(s.shutdownChan)

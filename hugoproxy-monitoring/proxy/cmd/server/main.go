@@ -12,12 +12,10 @@ import (
 )
 
 func main() {
-	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		logger.Get().Warn("couldn't load .env file", zap.Error(err))
 	}
 
-	// Initialize logger
 	logLevel := os.Getenv("LOG_LEVEL")
 	if logLevel == "" {
 		logLevel = "info"
@@ -32,11 +30,9 @@ func main() {
 		}
 	}()
 
-	// Create application context
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Initialize and run application
 	app, err := NewApp()
 	if err != nil {
 		logger.Get().Fatal("Failed to create application", zap.Error(err))
