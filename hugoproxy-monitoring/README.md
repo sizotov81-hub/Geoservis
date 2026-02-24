@@ -26,18 +26,25 @@
 - ✅ Структурированное логирование (zap)
 - ✅ RequestID для трассировки запросов
 - ✅ Graceful shutdown
+- ✅ Security headers (XSS, clickjacking защита)
+- ✅ CORS middleware
+- ✅ Rate limiting (защита от brute-force)
+- ✅ Валидация email и пароля
 
 ## Технологии
 
 | Компонент | Технология |
 |-----------|------------|
-| Язык | Go 1.23+ |
+| Язык | Go 1.24+ |
 | Фреймворк | Chi Router |
 | БД | PostgreSQL |
 | Кэш | In-memory |
 | Логгер | zap |
 | Метрики | Prometheus |
 | Миграции | goose |
+| Auth | JWT (jwtauth) |
+| Security | Security Headers, CORS, Rate Limiting |
+| Validation | regexp + custom validators |
 
 ## Быстрый старт
 
@@ -106,6 +113,9 @@ go run .
 | `WORKER_INTERVAL` | Интервал воркера | `1s` |
 | `LOG_LEVEL` | Уровень логов | `info` |
 | `LOG_FILE_PATH` | Путь к файлу логов | - |
+| `CORS_ALLOWED_ORIGINS` | Разрешённые CORS origins | `*` |
+| `RATE_LIMIT_RPS` | Rate limit (запросов в секунду) | `10` |
+| `RATE_LIMIT_BURST` | Rate limit burst | `20` |
 
 ### Пример `.env`
 
@@ -390,6 +400,53 @@ go tool pprof http://localhost:8080/mycustompath/pprof/heap
 go tool trace http://localhost:8080/mycustompath/pprof/trace
 ```
 
+## Безопасность
+
+### Security Headers
+
+Сервис автоматически добавляет заголовки безопасности:
+
+```
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+Content-Security-Policy: default-src 'self'
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: geolocation=(), microphone=(), camera=()
+```
+
+### CORS
+
+Настройка кросс-доменных запросов через переменную окружения:
+
+```bash
+# Разрешить несколько доменов
+CORS_ALLOWED_ORIGINS=https://app.com,https://admin.com
+
+# Или все домены (не рекомендуется для production)
+CORS_ALLOWED_ORIGINS=*
+```
+
+### Rate Limiting
+
+Защита от brute-force атак:
+
+- **10 запросов в секунду** на IP
+- **Burst: 20** запросов
+
+При превышении лимита возвращается статус `429 Too Many Requests`.
+
+### Валидация данных
+
+- **Email**: regex валидация + макс. длина 254 символа
+- **Пароль**: мин. 8 символов
+
+### JWT Токены
+
+- Алгоритм: **HS256**
+- Требуется переменная `JWT_SECRET` (обязательно!)
+- Токен передаётся в заголовке: `Authorization: Bearer {token}`
+
 ## Обработка ошибок
 
 Сервис использует обёрнутые ошибки с `fmt.Errorf` и `%w` для сохранения контекста:
@@ -407,34 +464,42 @@ if errors.Is(err, service.ErrUserNotFound) {
 }
 ```
 
-## Структура проекта
+## Структура проекта (Clean Architecture)
 
 ```
 hugoproxy-monitoring/
-├── proxy/                      # Основной код сервиса
-│   ├── main.go                 # Точка входа
-│   ├── auth.go                 # Аутентификация
+├── proxy/
+│   ├── cmd/
+│   │   └── server/           # Точка входа (main.go, app.go, shutdown.go)
 │   ├── internal/
-│   │   ├── config/             # Конфигурация
-│   │   ├── contextkeys/        # Ключи контекста
-│   │   ├── core/
-│   │   │   ├── controller/     # HTTP контроллеры
-│   │   │   ├── service/        # Бизнес-логика
-│   │   │   ├── repository/     # Репозитории
-│   │   │   └── entity/         # Модели данных
-│   │   └── infrastructure/
-│   │       ├── logger/         # Логирование (zap)
-│   │       ├── middleware/     # Middleware (RequestID)
-│   │       ├── db/             # База данных
-│   │       ├── cache/          # Кэширование
-│   │       ├── metrics/        # Prometheus метрики
-│   │       ├── pprof/          # Профилирование
-│   │       └── worker/         # Фоновые задачи
+│   │   ├── domain/           # Domain Layer
+│   │   │   ├── entity/       # Модели данных
+│   │   │   └── repository/   # Интерфейсы репозиториев
+│   │   ├── usecase/          # Use Case Layer (бизнес-логика)
+│   │   │   ├── user/         # User use cases
+│   │   │   └── geo/          # Geo use cases
+│   │   ├── interface/        # Interface Layer
+│   │   │   ├── http/
+│   │   │   │   ├── handler/  # HTTP handlers (controllers)
+│   │   │   │   │   ├── auth/ # Auth handlers
+│   │   │   │   │   └── ...
+│   │   │   │   └── middleware/ # HTTP middleware
+│   │   │   └── persistence/  # Repository implementations
+│   │   └── infrastructure/   # Infrastructure Layer
+│   │       ├── cache/        # In-memory cache
+│   │       ├── db/           # PostgreSQL + migrations
+│   │       ├── geo_proxy/    # Geo service proxy
+│   │       ├── logger/       # Zap logger
+│   │       ├── metrics/      # Prometheus metrics
+│   │       ├── middleware/   # RequestID, Security, CORS, RateLimit
+│   │       ├── pprof/        # Profiling
+│   │       └── worker/       # Background worker
 │   ├── pkg/
-│   │   └── responder/          # HTTP ответы
-│   └── migrations/             # SQL миграции
-├── grafana/                    # Grafana конфигурация
-├── prometheus/                 # Prometheus конфигурация
+│   │   └── responder/        # HTTP responder
+│   ├── migrations/           # SQL миграции
+│   └── docs/                 # Swagger документация
+├── grafana/
+├── prometheus/
 └── docker-compose.yml
 ```
 
