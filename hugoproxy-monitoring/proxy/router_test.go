@@ -122,10 +122,10 @@ func init() {
 // setupTestRouter создаёт тестовый роутер с мок-сервисами
 func setupTestRouter() *chi.Mux {
 	// Установка тестового JWT_SECRET
-	os.Setenv("JWT_SECRET", testJWTSecret)
+	os.Setenv("JWT_SECRET", TestJWTSecret)
 
 	// Переинициализация tokenAuth с тестовым секретом
-	tokenAuth = jwtauth.New("HS256", []byte(testJWTSecret), nil)
+	tokenAuth = jwtauth.New("HS256", []byte(TestJWTSecret), nil)
 
 	// Очистка userStore
 	userStore.Lock()
@@ -149,7 +149,7 @@ func setupTestRouter() *chi.Mux {
 
 	// User routes (защищённые)
 	r.Group(func(r chi.Router) {
-		r.Use(AuthMiddleware)
+		r.Use(newAuthMiddleware(TestJWTSecret))
 		r.Get("/api/users", testListUsersHandler)
 		r.Post("/api/users", testCreateUserHandler)
 		r.Get("/api/users/{id}", testGetUserHandler)
@@ -160,7 +160,7 @@ func setupTestRouter() *chi.Mux {
 
 	// Geo routes (защищённые)
 	r.Group(func(r chi.Router) {
-		r.Use(AuthMiddleware)
+		r.Use(newAuthMiddleware(TestJWTSecret))
 		r.Post("/api/address/search", testAddressSearchHandler)
 		r.Post("/api/address/geocode", testGeocodeHandler)
 	})
@@ -560,7 +560,7 @@ func TestRouter_ProtectedRoutes_WithToken(t *testing.T) {
 	router := setupTestRouter()
 
 	// Генерируем валидный токен
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	tests := []struct {
 		name       string
@@ -642,7 +642,7 @@ func TestRouter_ProtectedRoutes_WithToken(t *testing.T) {
 func TestRouter_GetUsers_List(t *testing.T) {
 	router := setupTestRouter()
 
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/users?limit=10&offset=0", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -657,7 +657,7 @@ func TestRouter_GetUsers_List(t *testing.T) {
 func TestRouter_GetUser_ByID(t *testing.T) {
 	router := setupTestRouter()
 
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/users/1", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -674,7 +674,7 @@ func TestRouter_GetUser_ByID(t *testing.T) {
 func TestRouter_UpdateUser(t *testing.T) {
 	router := setupTestRouter()
 
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	updateBody, _ := json.Marshal(map[string]interface{}{
 		"id":    1,
@@ -697,7 +697,7 @@ func TestRouter_UpdateUser(t *testing.T) {
 func TestRouter_DeleteUser(t *testing.T) {
 	router := setupTestRouter()
 
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/users/1", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -714,7 +714,7 @@ func TestRouter_DeleteUser(t *testing.T) {
 func TestRouter_AddressSearch(t *testing.T) {
 	router := setupTestRouter()
 
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	searchBody, _ := json.Marshal(service.SearchRequest{Query: "Москва"})
 
@@ -740,7 +740,7 @@ func TestRouter_AddressSearch(t *testing.T) {
 func TestRouter_Geocode(t *testing.T) {
 	router := setupTestRouter()
 
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	geocodeBody, _ := json.Marshal(service.GeocodeRequest{
 		Lat: "55.7558",
@@ -795,7 +795,7 @@ func TestRouter_MethodNotAllowed(t *testing.T) {
 // Примечание: chi router не всегда устанавливает Content-Type автоматически
 func TestRouter_ContentTypeHeader(t *testing.T) {
 	router := setupTestRouter()
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	// Проверяем, что защищённые маршруты работают и возвращают данные
 	// Создаём пользователя, чтобы получить непустой ответ
@@ -854,7 +854,7 @@ func TestRouter_ExpiredToken(t *testing.T) {
 func TestRouter_TokenWithoutBearerPrefix(t *testing.T) {
 	router := setupTestRouter()
 
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/users", nil)
 	// Добавляем токен без префикса Bearer
@@ -871,7 +871,7 @@ func TestRouter_TokenWithoutBearerPrefix(t *testing.T) {
 func TestRouter_InvalidUserID(t *testing.T) {
 	router := setupTestRouter()
 
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/users/invalid", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -886,7 +886,7 @@ func TestRouter_InvalidUserID(t *testing.T) {
 func TestRouter_AddressSearch_InvalidBody(t *testing.T) {
 	router := setupTestRouter()
 
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	req := httptest.NewRequest(http.MethodPost, "/api/address/search", bytes.NewReader([]byte("invalid json")))
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -902,7 +902,7 @@ func TestRouter_AddressSearch_InvalidBody(t *testing.T) {
 func TestRouter_Geocode_InvalidBody(t *testing.T) {
 	router := setupTestRouter()
 
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	req := httptest.NewRequest(http.MethodPost, "/api/address/geocode", bytes.NewReader([]byte("invalid json")))
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -918,7 +918,7 @@ func TestRouter_Geocode_InvalidBody(t *testing.T) {
 func TestRouter_GetUserByEmail(t *testing.T) {
 	router := setupTestRouter()
 
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/users/email?email=test@example.com", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -935,7 +935,7 @@ func TestRouter_GetUserByEmail(t *testing.T) {
 func TestRouter_GetUserByEmail_MissingEmailParam(t *testing.T) {
 	router := setupTestRouter()
 
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/users/email", nil)
 	req.Header.Set("Authorization", "Bearer "+token)

@@ -3,7 +3,10 @@ package controller
 import (
 	"net/http"
 
+	"go.uber.org/zap"
+
 	"gitlab.com/s.izotov81/hugoproxy/internal/core/service"
+	"gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/logger"
 	"gitlab.com/s.izotov81/hugoproxy/pkg/responder"
 )
 
@@ -35,18 +38,29 @@ func NewGeoController(geoService service.GeoServicer, responder responder.Respon
 // @Failure 500 {object} responder.ErrorResponse "Внутренняя ошибка сервера"
 // @Router /api/address/search [post]
 func (c *GeoController) Search(w http.ResponseWriter, r *http.Request) {
+	log := logger.FromContext(r.Context())
+
 	var req service.SearchRequest
 	if err := c.responder.Decode(r, &req); err != nil {
+		log.Warn("Search: invalid request format", zap.Error(err))
 		c.responder.Error(w, http.StatusBadRequest, "Invalid request format")
 		return
 	}
 
-	addresses, err := c.geoService.AddressSearch(req.Query)
-	if err != nil {
-		c.responder.Error(w, http.StatusInternalServerError, "Internal server error")
+	if req.Query == "" {
+		log.Warn("Search: query parameter is required")
+		c.responder.Error(w, http.StatusBadRequest, "Query parameter is required")
 		return
 	}
 
+	addresses, err := c.geoService.AddressSearch(r.Context(), req.Query)
+	if err != nil {
+		log.Error("Search: failed to search addresses", zap.String("query", req.Query), zap.Error(err))
+		c.responder.Error(w, http.StatusInternalServerError, "Failed to search addresses")
+		return
+	}
+
+	log.Info("Search: success", zap.String("query", req.Query), zap.Int("results", len(addresses)))
 	c.responder.Respond(w, http.StatusOK, service.SearchResponse{Addresses: addresses})
 }
 
@@ -64,17 +78,28 @@ func (c *GeoController) Search(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} responder.ErrorResponse "Внутренняя ошибка сервера"
 // @Router /api/address/geocode [post]
 func (c *GeoController) Geocode(w http.ResponseWriter, r *http.Request) {
+	log := logger.FromContext(r.Context())
+
 	var req service.GeocodeRequest
 	if err := c.responder.Decode(r, &req); err != nil {
+		log.Warn("Geocode: invalid request format", zap.Error(err))
 		c.responder.Error(w, http.StatusBadRequest, "Invalid request format")
 		return
 	}
 
-	addresses, err := c.geoService.GeoCode(req.Lat, req.Lng)
-	if err != nil {
-		c.responder.Error(w, http.StatusInternalServerError, "Internal server error")
+	if req.Lat == "" || req.Lng == "" {
+		log.Warn("Geocode: lat and lng parameters are required")
+		c.responder.Error(w, http.StatusBadRequest, "Lat and Lng parameters are required")
 		return
 	}
 
+	addresses, err := c.geoService.GeoCode(r.Context(), req.Lat, req.Lng)
+	if err != nil {
+		log.Error("Geocode: failed to geocode coordinates", zap.String("lat", req.Lat), zap.String("lng", req.Lng), zap.Error(err))
+		c.responder.Error(w, http.StatusInternalServerError, "Failed to geocode coordinates")
+		return
+	}
+
+	log.Info("Geocode: success", zap.String("lat", req.Lat), zap.String("lng", req.Lng), zap.Int("results", len(addresses)))
 	c.responder.Respond(w, http.StatusOK, service.GeocodeResponse{Addresses: addresses})
 }

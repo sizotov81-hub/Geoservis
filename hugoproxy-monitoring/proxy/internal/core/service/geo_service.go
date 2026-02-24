@@ -1,24 +1,27 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"io"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/ekomobile/dadata/v2/api/suggest"
 	"github.com/ekomobile/dadata/v2/client"
+	"go.uber.org/zap"
+
+	"gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/logger"
 	"gitlab.com/s.izotov81/hugoproxy/internal/infrastructure/metrics"
 )
 
 // GeoServicer определяет интерфейс для работы с геоданными
 type GeoServicer interface {
-	AddressSearch(input string) ([]*Address, error)
-	GeoCode(lat, lng string) ([]*Address, error)
+	AddressSearch(ctx context.Context, input string) ([]*Address, error)
+	GeoCode(ctx context.Context, lat, lng string) ([]*Address, error)
 }
 
 // GeoService реализует GeoServicer
@@ -26,6 +29,7 @@ type GeoService struct {
 	api       *suggest.Api
 	apiKey    string
 	secretKey string
+	httpClient *http.Client
 }
 
 // NewGeoService создает новый экземпляр GeoService
@@ -42,6 +46,9 @@ func NewGeoService(apiKey, secretKey string) *GeoService {
 		api:       &api,
 		apiKey:    apiKey,
 		secretKey: secretKey,
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 	}
 }
 
@@ -55,49 +62,73 @@ type Address struct {
 	Lon    string `json:"lon" example:"37.6173"`   // Долгота
 }
 
-// SearchRequest represents search request
+// SearchRequest представляет запрос для поиска адреса
 // @Description Запрос для поиска адреса
 type SearchRequest struct {
 	Query string `json:"query" example:"Москва Ленина 11"` // Поисковый запрос (город, улица, дом)
 }
 
-// SearchResponse represents search response
+// SearchResponse представляет ответ с найденными адресами
 // @Description Ответ с найденными адресами
 type SearchResponse struct {
 	Addresses []*Address `json:"addresses"` // Список найденных адресов
 }
 
-// GeocodeRequest represents geocode request
+// GeocodeRequest представляет запрос для геокодирования
 // @Description Запрос для геокодирования координат
 type GeocodeRequest struct {
 	Lat string `json:"lat" example:"55.7558"` // Широта
 	Lng string `json:"lng" example:"37.6173"` // Долгота
 }
 
-// GeocodeResponse represents geocode response
-// @Description Ответ с геокодированными адресами
+// geocodeResponse представляет ответ от API геокодирования
+type geocodeResponse struct {
+	Suggestions []geocodeSuggestion `json:"suggestions"`
+}
+
+// geocodeSuggestion представляет один результат геокодирования
+type geocodeSuggestion struct {
+	Data geocodeData `json:"data"`
+}
+
+// geocodeData содержит данные адреса
+type geocodeData struct {
+	City   string `json:"city"`
+	Street string `json:"street"`
+	House  string `json:"house"`
+	GeoLat string `json:"geo_lat"`
+	GeoLon string `json:"geo_lon"`
+}
+
+// GeocodeResponse представляет ответ с геокодированными адресами
+// @Description Ответ с найденными адресами
 type GeocodeResponse struct {
 	Addresses []*Address `json:"addresses"` // Список найденных адресов
 }
 
-func (g *GeoService) AddressSearch(input string) ([]*Address, error) {
-	var res []*Address
+// AddressSearch выполняет поиск адреса по строке запроса
+func (g *GeoService) AddressSearch(ctx context.Context, input string) ([]*Address, error) {
 	start := time.Now()
-	rawRes, err := g.api.Address(context.Background(), &suggest.RequestParams{Query: input})
+	log := logger.FromContext(ctx)
+
+	rawRes, err := g.api.Address(ctx, &suggest.RequestParams{Query: input})
 	duration := time.Since(start)
 
 	metrics.ObserveExternalAPIRequest("AddressSearch", duration)
 
 	if err != nil {
-		log.Printf("ERROR: external API error in AddressSearch: %v", err)
-		return nil, err
+		log.Error("AddressSearch failed", zap.String("query", input), zap.Error(err), zap.Duration("duration", duration))
+		return nil, fmt.Errorf("external API error: %w", err)
 	}
 
+	log.Debug("AddressSearch success", zap.String("query", input), zap.Int("results", len(rawRes)), zap.Duration("duration", duration))
+
+	addresses := make([]*Address, 0, len(rawRes))
 	for _, r := range rawRes {
 		if r.Data.City == "" || r.Data.Street == "" {
 			continue
 		}
-		res = append(res, &Address{
+		addresses = append(addresses, &Address{
 			City:   r.Data.City,
 			Street: r.Data.Street,
 			House:  r.Data.House,
@@ -105,43 +136,61 @@ func (g *GeoService) AddressSearch(input string) ([]*Address, error) {
 			Lon:    r.Data.GeoLon,
 		})
 	}
-	return res, nil
+
+	return addresses, nil
 }
 
-func (g *GeoService) GeoCode(lat, lng string) ([]*Address, error) {
+// GeoCode выполняет геокодирование координат
+func (g *GeoService) GeoCode(ctx context.Context, lat, lng string) ([]*Address, error) {
 	start := time.Now()
-	httpClient := &http.Client{}
-	data := strings.NewReader(fmt.Sprintf(`{"lat": %s, "lon": %s}`, lat, lng))
-	req, err := http.NewRequest("POST", "https://suggestions.dadata.ru/suggestions/api/4_1/rs/geolocate/address", data)
+	log := logger.FromContext(ctx)
+
+	reqBody := fmt.Sprintf(`{"lat": %s, "lon": %s}`, lat, lng)
+	req, err := http.NewRequestWithContext(ctx, "POST",
+		"https://suggestions.dadata.ru/suggestions/api/4_1/rs/geolocate/address",
+		bytes.NewReader([]byte(reqBody)))
 	if err != nil {
-		return nil, err
+		log.Error("GeoCode: failed to create request", zap.String("lat", lat), zap.String("lng", lng), zap.Error(err))
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Token %s", g.apiKey))
-	duration := time.Since(start)
 
-	metrics.ObserveExternalAPIRequest("GeoCode", duration)
-	resp, err := httpClient.Do(req)
+	resp, err := g.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		log.Error("GeoCode: failed to execute request", zap.String("lat", lat), zap.String("lng", lng), zap.Error(err))
+		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	var geoCode GeoCode
-	if err := json.NewDecoder(resp.Body).Decode(&geoCode); err != nil {
-		return nil, err
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Error("GeoCode: unexpected status code", zap.String("lat", lat), zap.String("lng", lng), zap.Int("status", resp.StatusCode), zap.String("body", string(body)))
+		return nil, fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
 	}
 
-	var res []*Address
-	for _, r := range geoCode.Suggestions {
-		res = append(res, &Address{
-			City:   string(r.Data.City),
-			Street: string(r.Data.Street),
-			House:  r.Data.House,
-			Lat:    r.Data.GeoLat,
-			Lon:    r.Data.GeoLon,
+	var geoResp geocodeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&geoResp); err != nil {
+		log.Error("GeoCode: failed to decode response", zap.String("lat", lat), zap.String("lng", lng), zap.Error(err))
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	addresses := make([]*Address, 0, len(geoResp.Suggestions))
+	for _, s := range geoResp.Suggestions {
+		addresses = append(addresses, &Address{
+			City:   s.Data.City,
+			Street: s.Data.Street,
+			House:  s.Data.House,
+			Lat:    s.Data.GeoLat,
+			Lon:    s.Data.GeoLon,
 		})
 	}
-	return res, nil
+
+	duration := time.Since(start)
+	metrics.ObserveExternalAPIRequest("GeoCode", duration)
+	log.Debug("GeoCode success", zap.String("lat", lat), zap.String("lng", lng), zap.Int("results", len(addresses)), zap.Duration("duration", duration))
+
+	return addresses, nil
 }

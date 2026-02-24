@@ -1,6 +1,7 @@
 package geo_proxy
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -15,13 +16,19 @@ type MockGeoService struct {
 	mock.Mock
 }
 
-func (m *MockGeoService) AddressSearch(input string) ([]*service.Address, error) {
-	args := m.Called(input)
+func (m *MockGeoService) AddressSearch(ctx context.Context, input string) ([]*service.Address, error) {
+	args := m.Called(ctx, input)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]*service.Address), args.Error(1)
 }
 
-func (m *MockGeoService) GeoCode(lat, lng string) ([]*service.Address, error) {
-	args := m.Called(lat, lng)
+func (m *MockGeoService) GeoCode(ctx context.Context, lat, lng string) ([]*service.Address, error) {
+	args := m.Called(ctx, lat, lng)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]*service.Address), args.Error(1)
 }
 
@@ -55,7 +62,7 @@ func TestGeoServiceProxy_AddressSearch_CacheHit(t *testing.T) {
 	mockCache.On("Get", "search:query").Return(expected, true).Once()
 	// Сервис не должен вызываться, так как данные в кэше
 
-	result, err := proxy.AddressSearch("query")
+	result, err := proxy.AddressSearch(context.Background(), "query")
 	assert.NoError(t, err)
 	assert.Equal(t, expected, result)
 
@@ -73,10 +80,10 @@ func TestGeoServiceProxy_AddressSearch_CacheMiss(t *testing.T) {
 
 	// Настройка моков
 	mockCache.On("Get", "search:query").Return(nil, false).Once()
-	mockService.On("AddressSearch", "query").Return(expected, nil).Once()
+	mockService.On("AddressSearch", mock.Anything, "query").Return(expected, nil).Once()
 	mockCache.On("Set", "search:query", expected, 5*time.Minute).Once()
 
-	result, err := proxy.AddressSearch("query")
+	result, err := proxy.AddressSearch(context.Background(), "query")
 	assert.NoError(t, err)
 	assert.Equal(t, expected, result)
 
@@ -94,10 +101,10 @@ func TestGeoServiceProxy_AddressSearch_ServiceError(t *testing.T) {
 
 	// Настройка моков
 	mockCache.On("Get", "search:query").Return(nil, false).Once()
-	mockService.On("AddressSearch", "query").Return([]*service.Address(nil), expectedError).Once()
+	mockService.On("AddressSearch", mock.Anything, "query").Return([]*service.Address(nil), expectedError).Once()
 	// Set не должен вызываться при ошибке
 
-	result, err := proxy.AddressSearch("query")
+	result, err := proxy.AddressSearch(context.Background(), "query")
 	assert.Error(t, err)
 	assert.Equal(t, expectedError, err)
 	assert.Nil(t, result)
@@ -118,7 +125,7 @@ func TestGeoServiceProxy_GeoCode_CacheHit(t *testing.T) {
 	mockCache.On("Get", "geocode:55.7558:37.6173").Return(expected, true).Once()
 	// Сервис не должен вызываться, так как данные в кэше
 
-	result, err := proxy.GeoCode("55.7558", "37.6173")
+	result, err := proxy.GeoCode(context.Background(), "55.7558", "37.6173")
 	assert.NoError(t, err)
 	assert.Equal(t, expected, result)
 
@@ -136,12 +143,33 @@ func TestGeoServiceProxy_GeoCode_CacheMiss(t *testing.T) {
 
 	// Настройка моков
 	mockCache.On("Get", "geocode:55.7558:37.6173").Return(nil, false).Once()
-	mockService.On("GeoCode", "55.7558", "37.6173").Return(expected, nil).Once()
+	mockService.On("GeoCode", mock.Anything, "55.7558", "37.6173").Return(expected, nil).Once()
 	mockCache.On("Set", "geocode:55.7558:37.6173", expected, 5*time.Minute).Once()
 
-	result, err := proxy.GeoCode("55.7558", "37.6173")
+	result, err := proxy.GeoCode(context.Background(), "55.7558", "37.6173")
 	assert.NoError(t, err)
 	assert.Equal(t, expected, result)
+
+	mockCache.AssertExpectations(t)
+	mockService.AssertExpectations(t)
+}
+
+func TestGeoServiceProxy_GeoCode_ServiceError(t *testing.T) {
+	mockService := new(MockGeoService)
+	mockCache := new(MockCache)
+	proxy := NewGeoServiceProxy(mockService, mockCache, 5*time.Minute)
+
+	// Ожидаемая ошибка
+	expectedError := errors.New("service error")
+
+	// Настройка моков
+	mockCache.On("Get", "geocode:55.7558:37.6173").Return(nil, false).Once()
+	mockService.On("GeoCode", mock.Anything, "55.7558", "37.6173").Return([]*service.Address(nil), expectedError).Once()
+
+	result, err := proxy.GeoCode(context.Background(), "55.7558", "37.6173")
+	assert.Error(t, err)
+	assert.Equal(t, expectedError, err)
+	assert.Nil(t, result)
 
 	mockCache.AssertExpectations(t)
 	mockService.AssertExpectations(t)

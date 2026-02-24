@@ -2,6 +2,7 @@ package responder
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -29,17 +30,24 @@ func NewJSONResponder() *JSONResponder {
 func (j *JSONResponder) Respond(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+	}
 }
 
 // Error отправляет JSON ответ с ошибкой
 func (j *JSONResponder) Error(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(ErrorResponse{Error: message})
+	if err := json.NewEncoder(w).Encode(ErrorResponse{Error: message}); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode error response: %v", err), http.StatusInternalServerError)
+	}
 }
 
 // Decode декодирует тело запроса в структуру
 func (j *JSONResponder) Decode(r *http.Request, v interface{}) error {
-	return json.NewDecoder(r.Body).Decode(v)
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		return fmt.Errorf("failed to decode request body: %w", err)
+	}
+	return nil
 }

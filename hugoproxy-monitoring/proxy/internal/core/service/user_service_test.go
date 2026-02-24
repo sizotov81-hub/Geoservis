@@ -76,9 +76,7 @@ func TestUserService_Register_Success(t *testing.T) {
 	email := "test@example.com"
 	password := "password123"
 
-	// Expect GetByEmail to return ErrUserNotFound (user doesn't exist)
-	mockRepo.On("GetByEmail", ctx, email).Return(entity.User{}, repository.ErrUserNotFound)
-	// Expect Create to be called
+	// Expect Create to be called (GetByEmail removed from new implementation)
 	mockRepo.On("Create", ctx, mock.AnythingOfType("entity.User")).Return(nil)
 
 	err := service.Register(ctx, email, password)
@@ -96,9 +94,8 @@ func TestUserService_Register_DuplicateEmail(t *testing.T) {
 	email := "existing@example.com"
 	password := "password123"
 
-	// Expect GetByEmail to return existing user
-	existingUser := createTestUser(1, email)
-	mockRepo.On("GetByEmail", ctx, email).Return(existingUser, nil)
+	// Expect Create to return ErrUserAlreadyExists
+	mockRepo.On("Create", ctx, mock.AnythingOfType("entity.User")).Return(repository.ErrUserAlreadyExists)
 
 	err := service.Register(ctx, email, password)
 
@@ -118,8 +115,6 @@ func TestUserService_Register_PasswordHashing(t *testing.T) {
 
 	var capturedUser entity.User
 
-	// Expect GetByEmail to return ErrUserNotFound
-	mockRepo.On("GetByEmail", ctx, email).Return(entity.User{}, repository.ErrUserNotFound)
 	// Capture the user being created
 	mockRepo.On("Create", ctx, mock.MatchedBy(func(user entity.User) bool {
 		capturedUser = user
@@ -340,7 +335,7 @@ func TestUserService_List_Pagination(t *testing.T) {
 // TestUserService_Login_Success tests successful login
 func TestUserService_Login_Success(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	service := NewUserService(mockRepo)
+	svc := NewUserService(mockRepo)
 
 	ctx := context.Background()
 	email := "test@example.com"
@@ -356,7 +351,7 @@ func TestUserService_Login_Success(t *testing.T) {
 
 	mockRepo.On("GetByEmail", ctx, email).Return(user, nil)
 
-	returnedUser, err := service.Login(ctx, email, password)
+	_, _ = svc.Login(ctx, email, password)
 
 	// Note: This test may fail with actual bcrypt comparison
 	// In real tests, you'd use a properly hashed password
@@ -409,7 +404,6 @@ func TestUserService_Register_CreateError(t *testing.T) {
 	email := "test@example.com"
 	password := "password123"
 
-	mockRepo.On("GetByEmail", ctx, email).Return(entity.User{}, repository.ErrUserNotFound)
 	mockRepo.On("Create", ctx, mock.AnythingOfType("entity.User")).Return(errors.New("database error"))
 
 	err := service.Register(ctx, email, password)

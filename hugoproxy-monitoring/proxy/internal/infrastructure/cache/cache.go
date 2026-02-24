@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"log"
 	"sync"
 	"time"
 )
@@ -15,8 +14,9 @@ type Cache interface {
 
 // InMemoryCache реализация in-memory кэша
 type InMemoryCache struct {
-	mu    sync.RWMutex
-	items map[string]cacheItem
+	mu      sync.RWMutex
+	items   map[string]cacheItem
+	stopCh  chan struct{}
 }
 
 type cacheItem struct {
@@ -27,7 +27,8 @@ type cacheItem struct {
 // NewInMemoryCache создает новый экземпляр in-memory кэша
 func NewInMemoryCache() *InMemoryCache {
 	cache := &InMemoryCache{
-		items: make(map[string]cacheItem),
+		items:  make(map[string]cacheItem),
+		stopCh: make(chan struct{}),
 	}
 	go cache.startCleanup()
 	return cache
@@ -50,7 +51,6 @@ func (c *InMemoryCache) Set(key string, value interface{}, ttl time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	log.Printf("Setting cache for key: %s with TTL: %v", key, ttl)
 	c.items[key] = cacheItem{
 		value:      value,
 		expiration: time.Now().Add(ttl),
@@ -62,8 +62,12 @@ func (c *InMemoryCache) Delete(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	log.Printf("Deleting cache for key: %s", key)
 	delete(c.items, key)
+}
+
+// Stop останавливает фоновую очистку
+func (c *InMemoryCache) Stop() {
+	close(c.stopCh)
 }
 
 // startCleanup запускает фоновую очистку устаревших записей
@@ -71,18 +75,20 @@ func (c *InMemoryCache) startCleanup() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		c.mu.Lock()
-		cleaned := 0
-		for key, item := range c.items {
-			if time.Now().After(item.expiration) {
-				delete(c.items, key)
-				cleaned++
+	for {
+		select {
+		case <-ticker.C:
+			c.mu.Lock()
+			cleaned := 0
+			for key, item := range c.items {
+				if time.Now().After(item.expiration) {
+					delete(c.items, key)
+					cleaned++
+				}
 			}
-		}
-		c.mu.Unlock()
-		if cleaned > 0 {
-			log.Printf("Cache cleanup: removed %d expired items", cleaned)
+			c.mu.Unlock()
+		case <-c.stopCh:
+			return
 		}
 	}
 }

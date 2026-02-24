@@ -2,6 +2,7 @@ package controller
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -38,23 +39,31 @@ func NewUserController(userService *service.UserService, responder responder.Res
 // @Failure 500 {object} responder.ErrorResponse
 // @Router /api/users [post]
 func (c *UserController) RegisterUser(w http.ResponseWriter, r *http.Request) {
-	var user entity.User
-	if err := c.responder.Decode(r, &user); err != nil {
-		c.responder.Error(w, http.StatusBadRequest, "Invalid request format")
+	var req entity.CreateUserRequest
+	if err := c.responder.Decode(r, &req); err != nil {
+		c.responder.Error(w, http.StatusBadRequest, fmt.Sprintf("Invalid request format: %v", err))
 		return
 	}
 
-	err := c.userService.Register(r.Context(), user.Email, user.PasswordHash)
+	err := c.userService.Register(r.Context(), req.Email, req.Password)
 	if err != nil {
 		status := http.StatusInternalServerError
+		message := err.Error()
 		if errors.Is(err, service.ErrUserAlreadyExists) {
 			status = http.StatusConflict
 		}
-		c.responder.Error(w, status, err.Error())
+		c.responder.Error(w, status, message)
 		return
 	}
 
-	c.responder.Respond(w, http.StatusCreated, nil)
+	// Получаем созданного пользователя
+	user, err := c.userService.GetUserByEmail(r.Context(), req.Email)
+	if err != nil {
+		c.responder.Error(w, http.StatusInternalServerError, fmt.Sprintf("User created but failed to retrieve: %v", err))
+		return
+	}
+
+	c.responder.Respond(w, http.StatusCreated, user)
 }
 
 // GetUser godoc
@@ -74,17 +83,18 @@ func (c *UserController) GetUser(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		c.responder.Error(w, http.StatusBadRequest, "Invalid user ID")
+		c.responder.Error(w, http.StatusBadRequest, fmt.Sprintf("Invalid user ID: %v", err))
 		return
 	}
 
 	user, err := c.userService.GetUser(r.Context(), id)
 	if err != nil {
 		status := http.StatusInternalServerError
+		message := err.Error()
 		if errors.Is(err, service.ErrUserNotFound) {
 			status = http.StatusNotFound
 		}
-		c.responder.Error(w, status, err.Error())
+		c.responder.Error(w, status, message)
 		return
 	}
 
@@ -105,19 +115,21 @@ func (c *UserController) GetUser(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} responder.ErrorResponse
 // @Router /api/users [get]
 func (c *UserController) ListUsers(w http.ResponseWriter, r *http.Request) {
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit <= 0 {
+	limitStr := r.URL.Query().Get("limit")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
 		limit = 10
 	}
 
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	if offset < 0 {
+	offsetStr := r.URL.Query().Get("offset")
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil || offset < 0 {
 		offset = 0
 	}
 
 	users, err := c.userService.ListUsers(r.Context(), limit, offset)
 	if err != nil {
-		c.responder.Error(w, http.StatusInternalServerError, err.Error())
+		c.responder.Error(w, http.StatusInternalServerError, fmt.Sprintf("Failed to list users: %v", err))
 		return
 	}
 
@@ -142,13 +154,13 @@ func (c *UserController) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		c.responder.Error(w, http.StatusBadRequest, "Invalid user ID")
+		c.responder.Error(w, http.StatusBadRequest, fmt.Sprintf("Invalid user ID: %v", err))
 		return
 	}
 
 	var user entity.User
 	if err := c.responder.Decode(r, &user); err != nil {
-		c.responder.Error(w, http.StatusBadRequest, "Invalid request format")
+		c.responder.Error(w, http.StatusBadRequest, fmt.Sprintf("Invalid request format: %v", err))
 		return
 	}
 	user.ID = id
@@ -156,10 +168,11 @@ func (c *UserController) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	err = c.userService.UpdateUser(r.Context(), user)
 	if err != nil {
 		status := http.StatusInternalServerError
+		message := err.Error()
 		if errors.Is(err, service.ErrUserNotFound) {
 			status = http.StatusNotFound
 		}
-		c.responder.Error(w, status, err.Error())
+		c.responder.Error(w, status, message)
 		return
 	}
 
@@ -183,17 +196,18 @@ func (c *UserController) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		c.responder.Error(w, http.StatusBadRequest, "Invalid user ID")
+		c.responder.Error(w, http.StatusBadRequest, fmt.Sprintf("Invalid user ID: %v", err))
 		return
 	}
 
 	err = c.userService.DeleteUser(r.Context(), id)
 	if err != nil {
 		status := http.StatusInternalServerError
+		message := err.Error()
 		if errors.Is(err, service.ErrUserNotFound) {
 			status = http.StatusNotFound
 		}
-		c.responder.Error(w, status, err.Error())
+		c.responder.Error(w, status, message)
 		return
 	}
 
@@ -223,10 +237,11 @@ func (c *UserController) GetUserByEmail(w http.ResponseWriter, r *http.Request) 
 	user, err := c.userService.GetUserByEmail(r.Context(), email)
 	if err != nil {
 		status := http.StatusInternalServerError
+		message := err.Error()
 		if errors.Is(err, service.ErrUserNotFound) {
 			status = http.StatusNotFound
 		}
-		c.responder.Error(w, status, err.Error())
+		c.responder.Error(w, status, message)
 		return
 	}
 

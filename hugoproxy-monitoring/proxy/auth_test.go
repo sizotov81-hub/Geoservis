@@ -14,24 +14,36 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const testJWTSecret = "test-secret-key-for-testing-purposes-only"
+// RegisterRequest представляет запрос на регистрацию
+type RegisterRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// LoginRequest представляет запрос на аутентификацию
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+const TestJWTSecret = "test-secret-key-for-testing-purposes-only"
 
 // setupTestEnvironment настраивает тестовое окружение перед каждым тестом
 func setupTestEnvironment() {
 	// Установка тестового JWT_SECRET
-	os.Setenv("JWT_SECRET", testJWTSecret)
-	
+	os.Setenv("JWT_SECRET", TestJWTSecret)
+
 	// Переинициализация tokenAuth с тестовым секретом
-	tokenAuth = jwtauth.New("HS256", []byte(testJWTSecret), nil)
-	
+	tokenAuth = jwtauth.New("HS256", []byte(TestJWTSecret), nil)
+
 	// Очистка userStore
 	userStore.Lock()
 	userStore.users = make(map[string]User)
 	userStore.Unlock()
 }
 
-// generateTestToken генерирует тестовый JWT токен для тестов
-func generateTestToken(email string) string {
+// GenerateTestToken генерирует тестовый JWT токен для тестов
+func GenerateTestToken(email string) string {
 	_, tokenString, _ := tokenAuth.Encode(map[string]interface{}{
 		"email": email,
 		"exp":   time.Now().Add(time.Hour).Unix(),
@@ -262,10 +274,10 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 	})
 
 	// Применяем middleware
-	middleware := AuthMiddleware(testHandler)
+	middleware := newAuthMiddleware(TestJWTSecret)(testHandler)
 
 	// Создаём валидный токен
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	// Создаём запрос с валидным токеном
 	req := httptest.NewRequest(http.MethodGet, "/api/protected", nil)
@@ -287,7 +299,7 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 	})
 
 	// Применяем middleware
-	middleware := AuthMiddleware(testHandler)
+	middleware := newAuthMiddleware(TestJWTSecret)(testHandler)
 
 	// Создаём запрос с невалидным токеном
 	req := httptest.NewRequest(http.MethodGet, "/api/protected", nil)
@@ -315,7 +327,7 @@ func TestAuthMiddleware_NoToken(t *testing.T) {
 	})
 
 	// Применяем middleware
-	middleware := AuthMiddleware(testHandler)
+	middleware := newAuthMiddleware(TestJWTSecret)(testHandler)
 
 	// Создаём запрос без токена
 	req := httptest.NewRequest(http.MethodGet, "/api/protected", nil)
@@ -342,10 +354,10 @@ func TestAuthMiddleware_TokenWithoutBearerPrefix(t *testing.T) {
 	})
 
 	// Применяем middleware
-	middleware := AuthMiddleware(testHandler)
+	middleware := newAuthMiddleware(TestJWTSecret)(testHandler)
 
 	// Создаём валидный токен без префикса Bearer
-	token := generateTestToken("test@example.com")
+	token := GenerateTestToken("test@example.com")
 
 	// Создаём запрос с токеном без префикса
 	req := httptest.NewRequest(http.MethodGet, "/api/protected", nil)
