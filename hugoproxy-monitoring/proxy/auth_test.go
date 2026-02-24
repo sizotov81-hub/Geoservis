@@ -14,18 +14,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// RegisterRequest представляет запрос на регистрацию
-type RegisterRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-// LoginRequest представляет запрос на аутентификацию
-type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
 const TestJWTSecret = "test-secret-key-for-testing-purposes-only"
 
 // setupTestEnvironment настраивает тестовое окружение перед каждым тестом

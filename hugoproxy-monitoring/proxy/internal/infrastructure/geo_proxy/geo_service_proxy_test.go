@@ -106,7 +106,7 @@ func TestGeoServiceProxy_AddressSearch_ServiceError(t *testing.T) {
 
 	result, err := proxy.AddressSearch(context.Background(), "query")
 	assert.Error(t, err)
-	assert.Equal(t, expectedError, err)
+	assert.Contains(t, err.Error(), "failed to search addresses from geo service")
 	assert.Nil(t, result)
 
 	mockCache.AssertExpectations(t)
@@ -168,7 +168,7 @@ func TestGeoServiceProxy_GeoCode_ServiceError(t *testing.T) {
 
 	result, err := proxy.GeoCode(context.Background(), "55.7558", "37.6173")
 	assert.Error(t, err)
-	assert.Equal(t, expectedError, err)
+	assert.Contains(t, err.Error(), "failed to geocode from geo service")
 	assert.Nil(t, result)
 
 	mockCache.AssertExpectations(t)

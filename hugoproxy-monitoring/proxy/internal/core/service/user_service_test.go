@@ -391,7 +391,7 @@ func TestUserService_Login_UserNotFound(t *testing.T) {
 	_, err := service.Login(ctx, email, "password")
 
 	assert.Error(t, err)
-	assert.Equal(t, repository.ErrUserNotFound, err)
+	assert.True(t, errors.Is(err, ErrInvalidCredentials))
 	mockRepo.AssertExpectations(t)
 }
 
@@ -409,7 +409,7 @@ func TestUserService_Register_CreateError(t *testing.T) {
 	err := service.Register(ctx, email, password)
 
 	assert.Error(t, err)
-	assert.Equal(t, "database error", err.Error())
+	assert.Contains(t, err.Error(), "failed to create user in repository")
 	mockRepo.AssertExpectations(t)
 }
 
@@ -426,6 +426,6 @@ func TestUserService_GetByID_RepositoryError(t *testing.T) {
 	_, err := service.GetUser(ctx, userID)
 
 	assert.Error(t, err)
-	assert.Equal(t, "database connection failed", err.Error())
+	assert.Contains(t, err.Error(), "failed to get user by ID")
 	mockRepo.AssertExpectations(t)
 }
